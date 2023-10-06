@@ -1,4 +1,4 @@
-function [DEM, fc] = GRIDobj_referenced(DEM, varargin)
+function [DEM, fc] = createreferenced(DEM, varargin)
 
 % Spatially reference one GRIDobj to another
 %
