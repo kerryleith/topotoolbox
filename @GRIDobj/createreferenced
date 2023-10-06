@@ -1,0 +1,130 @@
+% Spatially reference one GRIDobj to another
+%
+% DEM = 'J:\_Nat_Hzds_Risks\App_Res\Cncl_Rgnl\West_Coast\WCCDEM Debris Inundation\GIS\DEM\Mosaic\8mDEM_and_Photogrammetry_excess_topography25m_30deg_window_375cells.tif';
+% 
+% GRIDobj_referenced(DEM, 'DEMref', DEMorig)
+% 
+% 
+% DEM = GRIDobj_referenced(DEM, varargin);
+%
+% See also
+%   GRIDobj validatealignment GRIDobj/project worldfileread
+
+function [DEM, fc] = GRIDobj_referenced(DEM, varargin)
+% check and parse inputs
+narginchk(1,inf)
+
+p = inputParser;
+
+addParameter(p,'coordinateSystemType','planar');
+addParameter(p,'DEMref', []);
+addParameter(p,'AllowIncompleteCoverage', true);
+addParameter(p,'method', 'bilinear'); %'bilinear','linear','nearest','bicubic' %using nearest will retain info on edges
+
+addParameter(p,'verbose',true);
+
+parse(p,varargin{:});
+
+params = p.Results;
+verbose = params.verbose;
+params.method;
+
+ref = 0;
+%load the reference DEM if required
+if ~isempty(params.DEMref)
+    params.DEMref = loadWithGeoref(params.DEMref);
+    %params.DEMref.Z = [];
+    if isempty(params.DEMref.georef)
+        ref = 0;
+    else
+        ref = 1;
+    end  
+end
+
+%load the DEM
+DEM = loadWithGeoref(DEM, params.coordinateSystemType);
+if isempty(params.DEMref.name)
+    params.DEMref.name = 'DEM_reference';
+end
+if isempty(DEM.name)
+    DEM.name = 'DEM';
+end
+
+
+fc = 1;
+
+if ref == 1
+    %check projection and reproject if needed
+    if ~validatealignment(DEM,params.DEMref)   
+        %make sure the reference DEM name isn't a cell array
+        if isa(params.DEMref.name, "cell")
+            refname = [params.DEMref.name{:}];
+        else
+            refname = params.DEMref.name;
+        end
+        if verbose; fprintf('%s%s%s%s%s%s%s%0d%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Reprojecting and resampling ', DEM.name, ' to ', params.DEMref.cellsize, 'm resolution from ', refname); end
+        %if we want to ensure coverage, of the imported DEM on the target
+        %DEM, first reproject without aligning, and check the projected
+        %extents cover the target DEM
+        if ~params.AllowIncompleteCoverage
+            align = false;
+        else 
+            align = true;
+        end
+        
+        try
+           DEM = project(DEM, params.DEMref, 'align', align, 'method', params.method); 
+           
+           %DEM DEMr = resample(DEM, params.DEMref.cellsize); %!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! this is a hack - Kerry
+           %warning('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Kerry replaced GRIDobj\project with GRIDobj\resample, as GRIDobj\project function is still incorrect')
+        catch 
+            warning('Problem using project function. Grid limits may not overlap, or projection information may be missing');
+%             xce = DEM.georef.SpatialRef.CellExtentInWorldX;
+%             yce = DEM.georef.SpatialRef.CellExtentInWorldY;
+%             coveragefail = (params.DEMref.georef.SpatialRef.XWorldLimits(1)/xce > DEM.georef.SpatialRef.XWorldLimits(1)/xce ||...
+%                 params.DEMref.georef.SpatialRef.XWorldLimits(2)/xce < DEM.georef.SpatialRef.XWorldLimits(2)/xce ||...
+%                 params.DEMref.georef.SpatialRef.YWorldLimits(1)/yce > DEM.georef.SpatialRef.YWorldLimits(1)/yce ||...
+%                 params.DEMref.georef.SpatialRef.YWorldLimits(2)/yce < DEM.georef.SpatialRef.YWorldLimits(2)/yce);
+            if ~params.AllowIncompleteCoverage && nargout == 1
+                error('%s%s%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'GRIDobj_referenced: Incomplete coverage of projected DEM ', DEM.name, '. Aborting import.');
+            elseif ~params.AllowIncompleteCoverage  && nargout > 1
+                fc = 0;
+                if verbose; fprintf('%s%s%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'GRIDobj_referenced: Incomplete coverage of projected DEM ', DEM.name, '. Projecting to full coverage.'); end
+                DEM = project(DEM, params.DEMref, 'method', params.method);
+%             else
+%                 DEM = crop(DEM, params.DEMref.georef.SpatialRef.XWorldLimits, params.DEMref.georef.SpatialRef.YWorldLimits);
+            end
+        end 
+        
+    else
+        if verbose; fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'DEMs are aligned'); end
+    end
+
+end
+
+end
+
+
+function DEM = loadWithGeoref(DEM, coordinateSystemType)    
+
+    if ~isa(DEM, 'GRIDobj')
+        path  = DEM;
+        DEM = GRIDobj(path);
+        %check if there is reference info
+        if isempty(DEM.georef)
+            %check if a world file exists
+            worldFileName = getworldfilename(path);
+            if isfile(worldFileName)
+                %if it does, add georef info to the DEM
+                if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Adding .tfw spatial reference information to ', DEM.name); end
+                DEM.georef.SpatialRef = worldfileread(worldFileName, coordinateSystemType,DEM.size);
+            else
+                if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', DEM.name, ' file has no spatial reference information'); end
+            end
+        end 
+    elseif isempty(DEM.georef)
+        if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', DEM.name, ' GRIDobj has no spatial reference information'); end
+    end
+
+    
+end

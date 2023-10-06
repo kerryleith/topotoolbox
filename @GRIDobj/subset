@@ -1,0 +1,48 @@
+%rapidly sample a section of a geotiff with a rectangle with known coordinate limits
+
+% filename = 'D:\GIS\NZ\DEM\Lidar\hawkes_bay_1m_2020_2021_DEM_crop.tif';
+% 
+% x_min = 1935000.0;
+% y_max = 5640000.0;
+% x_max = 1940000.0;
+% y_min = 5637500.0;
+% 
+% region(1,1) = x_min; %min DEM X
+% region(2,1) = x_max; %max DEM X
+% region(1,2) = y_min; %min DEM Y
+% region(2,2) = y_max; %max DEM Y
+% 
+% [DEMsub] = subset(filename, region);
+% 
+% DEMsub.Z(DEMsub.Z < -100) = nan;
+% imagesc(DEMsub);
+
+%%
+function [DEMsub] = subset(DEM, cropRegion)
+    if polyregionOverlapsGRIDobj(cropRegion, DEM)        
+
+        [DEMsub, x_offset_cells, y_offset_cells, isGeoTIFF] =  GRIDobj_createAligned(DEM, cropRegion);
+
+        if isGeoTIFF
+            data = imread(DEM, 'PixelRegion', { y_offset_cells+[1 0],... %height
+                                            x_offset_cells+[1 0]});  %width    
+        else
+            % this doesn't work!!!!!!!
+            bim = blockedImage(DEM);
+%             bim.BlockSize = [x_offset_cells(2) - x_offset_cells(1) +1, ...
+%                              y_offset_cells(2) - y_offset_cells(1) +1,];
+            geoInfo = georasterinfo("boston.tif");
+            geoRef = geoInfo.RasterReference;
+%             block = getBlock(bim,[3 7 1]);
+            blockRef = cropToBlock(geoRef,x_offset_cells+[1 0],y_offset_cells+[1 0]);
+            mapshow(block,blockRef);
+            data = blockref.data;
+        end
+
+        DEMsub.Z = data;
+        
+    else
+        warning('Region of interest does not overlap DEM')
+        DEMsub = [];
+    end
+end

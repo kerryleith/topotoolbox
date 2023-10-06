@@ -1,0 +1,80 @@
+% Mosaic all available GeoTIFFs in a folder to cover a region
+% 
+% folder = '\\hut-gis-smb\esrimaps\ro\LiDAR_Datashare\west_coast_1m_2020_2022_DEM\';
+% region = [1365000,5194000 ; 1367000, 5202000];
+% 
+% [mosaicGRID] = GRIDobj_mosaic_test(folder, region, 'Outputres', 200);
+function [DEM] = mosaic(folder, region, varargin)
+
+    % check and parse inputs
+    narginchk(2,inf)
+    
+    p = inputParser;
+    
+    addParameter(p,'Outputres',[]);
+    addParameter(p,'measure', 'internal'); %or 'external'
+    addParameter(p,'writeOutput',[]);
+    addParameter(p,'waitbar',true);
+    addParameter(p,'verbose',true);
+    addParameter(p,'method', 'bilinear'); %'bilinear','linear','nearest','bicubic' %using nearest will retain info on edges
+    
+    parse(p,varargin{:});
+    
+    params = p.Results;
+    verbose = params.verbose;
+    wb = params.waitbar;
+    
+    listing = dir(sprintf('%s%s', folder, '*.tif'));
+    
+    if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Loading all DEM metadata from ', folder); end
+    for i = 1:size(listing, 1)
+        DEMpath{i} = sprintf('%s%s%s', listing(i).folder, '\', listing(i).name);
+%         try 
+%             info{i} = geotiffinfo(DEMpath{i});        
+%         catch
+%             warning('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Unable to read tiff file, attempting to read georaster instead: ', DEMpath{i});
+%             info{i} = georasterinfo(DEMpath{i});
+%         end
+    end
+    
+    if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Locating files within ROI in ', folder); end
+
+    inPoly = false(size(listing, 1), 1);
+    for i = 1:size(listing, 1)
+        inPoly(i) = polyregionOverlapsGRIDobj(region, DEMpath{i});
+    end
+    
+    %create a new grid object to hold data
+    nanval = -99999;
+    DEM = createAligned(DEMpath{i}, region, 'Outputres', params.Outputres, 'respectGRIDextents', false);
+    DEM.Z = nanval * ones(DEM.size);
+
+    if verbose; fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Mosaicing DEMs'); end
+    
+    if wb
+        f1 = waitbar(0,'Cropping and resampling');
+        f1.Children.Title.Interpreter = 'none';
+    end
+    for i = 1:size(listing, 1)
+        if inPoly(i)
+            if wb
+                waitbar(i/size(listing, 1), f1, sprintf('%s%s', 'Cropping and resampling ', listing(i).name));
+            end
+            
+            DEMsub = GRIDobj_subset(sprintf('%s%s%s', listing(i).folder, '\', listing(i).name), region);
+            DEMsub.Z(DEMsub.Z < -10000) = NaN;
+            if ~validatealignment(DEMsub, DEM)
+                DEMsub = GRIDobj_referenced(DEMsub, 'DEMref', DEM);
+            end
+            DEM = max(DEM, GRIDobj_referenced(DEMsub, 'DEMref',DEM, 'verbose', verbose, 'method', params.method));
+            %imagesc(DEM)
+        end
+    end
+    if wb
+        close(f1)    
+    end
+    %return empty cells to nan
+    DEM.Z(DEM.Z == nanval) = nan;
+    
+end
+

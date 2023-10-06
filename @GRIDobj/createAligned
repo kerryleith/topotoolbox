@@ -1,0 +1,136 @@
+%Create a new GRIDobj aligned to the origin, and with similar extents of an existing objects.
+%This will ensure the coverage and cellsize are consistent
+
+function [DEMs, x_offset_cells, y_offset_cells, isGeoTIFF] = createAligned(DEM, Region, varargin)
+
+    narginchk(2,inf)
+    
+    p = inputParser;
+
+    addParameter(p,'Outputres',[]);
+    addParameter(p,'respectGRIDextents', true);
+    addParameter(p,'newRasterInterpretation', 'cells');
+    addParameter(p,'gridValues', NaN);
+    addParameter(p,'waitbar',true);
+    addParameter(p,'verbose',true);
+    parse(p,varargin{:});
+    
+    params = p.Results;
+    verbose = params.verbose;
+    wb = params.waitbar;
+    respectGRIDextents = params.respectGRIDextents;
+
+    if respectGRIDextents
+        type = 'subset';
+    else
+        type = 'mosaic';
+    end
+
+    %% create the new ref grid
+    if verbose; fprintf('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Creating new grid reference for new ', type); end
+    try 
+        info = geotiffinfo(DEM); 
+        isGeoTIFF = 1;
+    catch
+        %warning('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Unable to read tiff file, attempting to read georaster instead: ', DEM);
+        infoRaster = georasterinfo(DEM);
+        isGeoTIFF = 0;
+        info.SpatialRef = infoRaster.RasterReference;
+        x_celldim = info.SpatialRef.CellExtentInWorldX;
+        y_celldim = -info.SpatialRef.CellExtentInWorldY; %!!!!!!!!!!!!!!!!!!!!!! there's a -ve here -> this should be done properly
+        info.RefMatrix = [0, x_celldim, info.SpatialRef.YWorldLimits(1) - x_celldim/2; ... 
+                 y_celldim, 0, info.SpatialRef.XWorldLimits(2) - y_celldim/2]';
+        info.BoundingBox(1:2,1) = info.SpatialRef.XWorldLimits;
+        info.BoundingBox(1:2,2) = info.SpatialRef.YWorldLimits;
+        %clear infoRaster
+    end
+    
+    if verbose
+        fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'RAW input DEM spatial info:')
+        fprintf('%0.1f%s%0.1f\n', info.RefMatrix(2,1), ' ', info.RefMatrix(1,2));
+        fprintf('%i%s%i\n', info.SpatialRef.RasterSize(1), ' ', info.SpatialRef.RasterSize(2));
+        fprintf('%0.1f%s%0.1f\n\n', info.RefMatrix(3,1), ' ', info.RefMatrix(3,2));
+        fprintf('%0.1f%s%0.1f\n', info.SpatialRef.XWorldLimits(1), ' ', info.SpatialRef.YWorldLimits(1));
+        fprintf('%0.1f%s%0.1f\n\n\n', info.SpatialRef.XWorldLimits(2), ' ', info.SpatialRef.YWorldLimits(2));   
+    end
+
+    
+    
+    if ~isempty(params.Outputres) && params.Outputres - abs(info.RefMatrix(2,1)) ~= 0
+        x_celldim = params.Outputres .* sign(info.RefMatrix(2,1));
+        y_celldim = params.Outputres .* sign(info.RefMatrix(1,2));
+    else
+        x_celldim = info.RefMatrix(2,1);
+        y_celldim = info.RefMatrix(1,2);
+    end
+
+    if respectGRIDextents
+        %for subset
+        in_XWorldLimits = info.BoundingBox(:,1);%refmatrix(3,1) is the x coordinate of the center of the upper left cell... Bounding box(1,1) is the x coordinate of the upper left corner of the image
+        in_YWorldLimits = info.BoundingBox(:,2);%refmatrix(3,2) is the y coordinate of the center of the upper left cell... Bounding box(2,2) is the x coordinate of the upper left corner of the image
+        x_min = max(in_XWorldLimits(1), Region(1,1)); %max DEM X
+        x_max = min(in_XWorldLimits(2), Region(2,1)); %min DEM X
+        y_min = max(in_YWorldLimits(1), Region(1,2)); %max DEM Y
+        y_max = min(in_YWorldLimits(2), Region(2,2)); %min DEM Y
+    else
+        %for mosaic
+        x_min = Region(1,1); %max DEM X
+        x_max = Region(2,1); %min DEM X
+        y_min = Region(1,2); %max DEM Y
+        y_max = Region(2,2); %min DEM Y
+    end
+
+    %create a new grid aligned to the initial
+    [XWorldLimits, YWorldLimits,... 
+     x_offset_cells, y_offset_cells,...
+     width_cells, height_cells] = alignDimensions(  [x_min, x_max], [y_min, y_max],...
+                                                            info.SpatialRef.XWorldLimits, info.SpatialRef.YWorldLimits,...
+                                                            x_celldim,      y_celldim,...
+                                                            info.SpatialRef.RowsStartFrom, info.SpatialRef.ColumnsStartFrom);
+           
+    %generate the corresponding refmat
+    newRefmatExtent = [0, x_celldim, XWorldLimits(1) - x_celldim/2; ... 
+                 y_celldim, 0, YWorldLimits(2) - y_celldim/2]';
+    
+    newRasterSize = [height_cells width_cells];
+         
+    newRasterRef = maprefcells(XWorldLimits,YWorldLimits,newRasterSize, ...
+        'ColumnsStartFrom', info.SpatialRef.ColumnsStartFrom, 'RowsStartFrom', info.SpatialRef.RowsStartFrom);
+    
+    %% create the grid extents
+    
+    DEMs = GRIDobj([]);
+    DEMs.refmat = newRefmatExtent;    
+    DEMs.cellsize = mean([abs(x_celldim), abs(y_celldim)]);%[abs(x_celldim); abs(y_celldim); 0];%info.PixelScale(1);
+    DEMs.size = newRasterRef.RasterSize;
+    DEMs.name = type;
+    DEMs.zunit = [];
+    DEMs.xyunit = [];
+    DEMs.georef.mstruct = geotiff2mstruct(info);
+    DEMs.georef.SpatialRef = newRasterRef;    
+    if isGeoTIFF
+        DEMs.georef.GeoKeyDirectoryTag  = info.GeoTIFFTags.GeoKeyDirectoryTag;
+    else
+        DEMs.georef.GeoKeyDirectoryTag = [];
+    end
+
+    if verbose
+        fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Aligned DEM spatial info:')
+        fprintf('%0.1f%s%0.1f\n', DEMs.refmat(2,1), ' ', DEMs.refmat(1,2));
+        fprintf('%i%s%i\n', DEMs.size(1), ' ', DEMs.size(2));
+        fprintf('%0.1f%s%0.1f\n\n', DEMs.refmat(3,1), ' ', DEMs.refmat(3,2));
+        fprintf('%0.1f%s%0.1f\n', DEMs.georef.SpatialRef.XWorldLimits(1), ' ', DEMs.georef.SpatialRef.YWorldLimits(1));
+        fprintf('%0.1f%s%0.1f\n\n\n', DEMs.georef.SpatialRef.XWorldLimits(2), ' ', DEMs.georef.SpatialRef.YWorldLimits(2));
+    end
+    
+    if isempty(params.gridValues)
+        DEMs.Z = [];
+    elseif isnan(params.gridValues)
+        DEMs.Z = nan(DEMs.size);
+    elseif isnumeric(params.gridValues)
+        DEMs.Z = ones(DEMs.size)*params.gridValues;
+    elseif islogical(params.gridValues)
+        DEMs.Z = true(DEMs.size) * params.gridValues;
+    end
+
+end
