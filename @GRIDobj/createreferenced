@@ -1,3 +1,5 @@
+function [DEM, fc] = GRIDobj_referenced(DEM, varargin)
+
 % Spatially reference one GRIDobj to another
 %
 % DEM = 'J:\_Nat_Hzds_Risks\App_Res\Cncl_Rgnl\West_Coast\WCCDEM Debris Inundation\GIS\DEM\Mosaic\8mDEM_and_Photogrammetry_excess_topography25m_30deg_window_375cells.tif';
@@ -10,7 +12,6 @@
 % See also
 %   GRIDobj validatealignment GRIDobj/project worldfileread
 
-function [DEM, fc] = GRIDobj_referenced(DEM, varargin)
 % check and parse inputs
 narginchk(1,inf)
 
