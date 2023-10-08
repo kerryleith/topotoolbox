@@ -3,7 +3,7 @@
 % folder = '\\hut-gis-smb\esrimaps\ro\LiDAR_Datashare\west_coast_1m_2020_2022_DEM\';
 % region = [1365000,5194000 ; 1367000, 5202000];
 % 
-% [mosaicGRID] = GRIDobj_mosaic_test(folder, region, 'Outputres', 200);
+% [mosaicGRID] = mosaic_test(folder, region, 'Outputres', 200);
 function [DEM] = mosaic(folder, region, varargin)
 
     % check and parse inputs
@@ -61,12 +61,12 @@ function [DEM] = mosaic(folder, region, varargin)
                 waitbar(i/size(listing, 1), f1, sprintf('%s%s', 'Cropping and resampling ', listing(i).name));
             end
             
-            DEMsub = GRIDobj_subset(sprintf('%s%s%s', listing(i).folder, '\', listing(i).name), region);
+            DEMsub = subset(sprintf('%s%s%s', listing(i).folder, '\', listing(i).name), region);
             DEMsub.Z(DEMsub.Z < -10000) = NaN;
             if ~validatealignment(DEMsub, DEM)
-                DEMsub = GRIDobj_referenced(DEMsub, 'DEMref', DEM);
+                DEMsub = createreferenced(DEMsub, 'DEMref', DEM);
             end
-            DEM = max(DEM, GRIDobj_referenced(DEMsub, 'DEMref',DEM, 'verbose', verbose, 'method', params.method));
+            DEM = max(DEM, createreferenced(DEMsub, 'DEMref',DEM, 'verbose', verbose, 'method', params.method));
             %imagesc(DEM)
         end
     end

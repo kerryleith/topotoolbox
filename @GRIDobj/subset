@@ -21,7 +21,7 @@
 function [DEMsub] = subset(DEM, cropRegion)
     if polyregionOverlapsGRIDobj(cropRegion, DEM)        
 
-        [DEMsub, x_offset_cells, y_offset_cells, isGeoTIFF] =  GRIDobj_createAligned(DEM, cropRegion);
+        [DEMsub, x_offset_cells, y_offset_cells, isGeoTIFF] =  createAligned(DEM, cropRegion);
 
         if isGeoTIFF
             data = imread(DEM, 'PixelRegion', { y_offset_cells+[1 0],... %height

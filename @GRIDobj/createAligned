@@ -32,12 +32,12 @@ function [DEMs, x_offset_cells, y_offset_cells, isGeoTIFF] = createAligned(DEM, 
         info = geotiffinfo(DEM); 
         isGeoTIFF = 1;
     catch
-        %warning('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Unable to read tiff file, attempting to read georaster instead: ', DEM);
+        warning('%s%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Unable to read tiff file, attempting to read georaster instead: ', DEM);
         infoRaster = georasterinfo(DEM);
         isGeoTIFF = 0;
         info.SpatialRef = infoRaster.RasterReference;
         x_celldim = info.SpatialRef.CellExtentInWorldX;
-        y_celldim = -info.SpatialRef.CellExtentInWorldY; %!!!!!!!!!!!!!!!!!!!!!! there's a -ve here -> this should be done properly
+        y_celldim = -info.SpatialRef.CellExtentInWorldY; %!!!!!!!!!!!!!!!!!!!!!! there's a -ve here in Southern Hemi -> this should be done properly
         info.RefMatrix = [0, x_celldim, info.SpatialRef.YWorldLimits(1) - x_celldim/2; ... 
                  y_celldim, 0, info.SpatialRef.XWorldLimits(2) - y_celldim/2]';
         info.BoundingBox(1:2,1) = info.SpatialRef.XWorldLimits;
