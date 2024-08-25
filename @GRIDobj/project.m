@@ -70,6 +70,7 @@ function DEMr = project(SOURCE,TARGET,varargin)
     addParamValue(p,'align',true,@(x) isscalar(x));
     addParamValue(p,'method','bilinear',@(x) ischar(x));
     addParamValue(p,'fillvalue',nan,@(x) isscalar(x));
+    addParamValue(p,'verbose', false);
     parse(p,varargin{:});
     
     % Get mstruct of SOURCE
@@ -199,26 +200,28 @@ function DEMr = project(SOURCE,TARGET,varargin)
     
     DEMr.name = [SOURCE.name ' (projected)'];
     
-    fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Resampling SOURCE from:')
-    fprintf('%0.1f%s%0.1f\n', SOURCE.refmat(2,1), ' ', SOURCE.refmat(1,2));
-    fprintf('%0.1f%s%0.1f\n', SOURCE.size(1), ' ', SOURCE.size(2));
-    fprintf('%0.1f%s%0.1f\n\n', SOURCE.refmat(3,1), ' ', SOURCE.refmat(3,2));
-    fprintf('%0.1f%s%0.1f\n', SOURCE.georef.SpatialRef.XWorldLimits(1), ' ', SOURCE.georef.SpatialRef.YWorldLimits(1));
-    fprintf('%0.1f%s%0.1f\n\n\n', SOURCE.georef.SpatialRef.XWorldLimits(2), ' ', SOURCE.georef.SpatialRef.YWorldLimits(2));
-    
-    fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Resampling to TARGET:')
-    fprintf('%0.1f%s%0.1f\n', TARGET.refmat(2,1), ' ', TARGET.refmat(1,2));
-    fprintf('%0.1f%s%0.1f\n', TARGET.size(1), ' ', TARGET.size(2));
-    fprintf('%0.1f%s%0.1f\n\n', TARGET.refmat(3,1), ' ', TARGET.refmat(3,2));
-    fprintf('%0.1f%s%0.1f\n', TARGET.georef.SpatialRef.XWorldLimits(1), ' ', TARGET.georef.SpatialRef.YWorldLimits(1));
-    fprintf('%0.1f%s%0.1f\n\n\n', TARGET.georef.SpatialRef.XWorldLimits(2), ' ', TARGET.georef.SpatialRef.YWorldLimits(2));
-    
-    fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Reprojected SOURCE is:')
-    fprintf('%0.1f%s%0.1f\n', DEMr.refmat(2,1), ' ', DEMr.refmat(1,2));
-    fprintf('%0.1f%s%0.1f\n', DEMr.size(1), ' ', DEMr.size(2));
-    fprintf('%0.1f%s%0.1f\n\n', DEMr.refmat(3,1), ' ', DEMr.refmat(3,2));
-    fprintf('%0.1f%s%0.1f\n', DEMr.georef.SpatialRef.XWorldLimits(1), ' ', DEMr.georef.SpatialRef.YWorldLimits(1));
-    fprintf('%0.1f%s%0.1f\n\n\n', DEMr.georef.SpatialRef.XWorldLimits(2), ' ', DEMr.georef.SpatialRef.YWorldLimits(2));
+    if p.Results.verbose == 2
+        fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Resampling SOURCE from:')
+        fprintf('%0.1f%s%0.1f\n', SOURCE.refmat(2,1), ' ', SOURCE.refmat(1,2));
+        fprintf('%0.1f%s%0.1f\n', SOURCE.size(1), ' ', SOURCE.size(2));
+        fprintf('%0.1f%s%0.1f\n\n', SOURCE.refmat(3,1), ' ', SOURCE.refmat(3,2));
+        fprintf('%0.1f%s%0.1f\n', SOURCE.georef.SpatialRef.XWorldLimits(1), ' ', SOURCE.georef.SpatialRef.YWorldLimits(1));
+        fprintf('%0.1f%s%0.1f\n\n\n', SOURCE.georef.SpatialRef.XWorldLimits(2), ' ', SOURCE.georef.SpatialRef.YWorldLimits(2));
+        
+        fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Resampling to TARGET:')
+        fprintf('%0.1f%s%0.1f\n', TARGET.refmat(2,1), ' ', TARGET.refmat(1,2));
+        fprintf('%0.1f%s%0.1f\n', TARGET.size(1), ' ', TARGET.size(2));
+        fprintf('%0.1f%s%0.1f\n\n', TARGET.refmat(3,1), ' ', TARGET.refmat(3,2));
+        fprintf('%0.1f%s%0.1f\n', TARGET.georef.SpatialRef.XWorldLimits(1), ' ', TARGET.georef.SpatialRef.YWorldLimits(1));
+        fprintf('%0.1f%s%0.1f\n\n\n', TARGET.georef.SpatialRef.XWorldLimits(2), ' ', TARGET.georef.SpatialRef.YWorldLimits(2));
+        
+        fprintf('%s%s%s%s%s\n', string(datetime(now,'ConvertFrom','datenum')), ' ', mfilename, ': ', 'Reprojected SOURCE is:')
+        fprintf('%0.1f%s%0.1f\n', DEMr.refmat(2,1), ' ', DEMr.refmat(1,2));
+        fprintf('%0.1f%s%0.1f\n', DEMr.size(1), ' ', DEMr.size(2));
+        fprintf('%0.1f%s%0.1f\n\n', DEMr.refmat(3,1), ' ', DEMr.refmat(3,2));
+        fprintf('%0.1f%s%0.1f\n', DEMr.georef.SpatialRef.XWorldLimits(1), ' ', DEMr.georef.SpatialRef.YWorldLimits(1));
+        fprintf('%0.1f%s%0.1f\n\n\n', DEMr.georef.SpatialRef.XWorldLimits(2), ' ', DEMr.georef.SpatialRef.YWorldLimits(2));
+    end
     
     
     % Transformation functions for imtransform (projected --> projected)

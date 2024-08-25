@@ -203,7 +203,7 @@ methods
 
         % get coordinate pairs
         [rows,cols] = ind2sub(S.size,S.IXgrid);
-        xy =  [double(rows(:)) double(cols(:)) ones(numel(rows),1)] * S.refmat;
+        xy =  [double(rows(:)-1) double(cols(:)-1) ones(numel(rows),1)] * S.refmat; %25/08/2024 Kerry changed this, aded -1's
         S.x = xy(:,1);
         S.y = xy(:,2);
           
