@@ -256,10 +256,20 @@ classdef GRIDobj
                     try 
                         % try to read using geotiffread (requires mapping
                         % toolbox)
-                        [DEM.Z, DEM.refmat, ~] = geotiffread(filename);
-                        gtiffinfo              = geotiffinfo(filename);
-                        DEM.georef.SpatialRef  = gtiffinfo.SpatialRef; 
-                        DEM.georef.GeoKeyDirectoryTag = gtiffinfo.GeoTIFFTags.GeoKeyDirectoryTag;
+
+                        %29/08/24 Kerry modified this
+                        info = GRIDobj_geoTIFFinfo_from_geoRASTERinfo(filename);
+                        DEM.Z =readgeoraster(filename);
+                        DEM.refmat = info.RefMatrix;
+                        DEM.size = info.SpatialRef.RasterSize;
+                        DEM.cellsize = info.SpatialRef.CellExtentInWorldX;
+                        DEM.georef.SpatialRef = info.SpatialRef;
+                        DEM.georef.GeoKeyDirectoryTag = info.GeoKeyDirectoryTag;
+                        
+%                       [DEM.Z, DEM.refmat, ~] = geotiffread(filename);                             %29/08/24 Kerry modified this
+%                       gtiffinfo              = geotiffinfo(filename);                             %29/08/24 Kerry modified this
+%                       DEM.georef.SpatialRef  = gtiffinfo.SpatialRef;                              %29/08/24 Kerry modified this
+%                       DEM.georef.GeoKeyDirectoryTag = gtiffinfo.GeoTIFFTags.GeoKeyDirectoryTag;   %29/08/24 Kerry modified this
                         georef_enabled = true;
                         
                     catch ME
@@ -308,7 +318,11 @@ classdef GRIDobj
                     % the projection is not supported by mstruct.
                     if georef_enabled
                         try
-                            DEM.georef.mstruct = geotiff2mstruct(gtiffinfo);
+                            if isa(info.SpatialRef, 'map.rasterref.MapCellsReference')          %29/08/2024 Kerry changed this
+                                DEM.georef.mstruct = createMStructFromGeorasterInfo(info);      %29/08/2024 Kerry changed this
+                            else                                                                %29/08/2024 Kerry changed this
+                                DEM.georef.mstruct = geotiff2mstruct(info);
+                            end                                                                 %29/08/2024 Kerry changed this
                         catch
                             DEM.georef.mstruct = [];
                             warning('TopoToolbox:GRIDobj:projection',...

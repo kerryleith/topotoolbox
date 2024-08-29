@@ -26,6 +26,7 @@ function [x,y] = sub2coord(DEM,r,c)
 % Date: 30. January, 2013
 
 
-xy    = double([r c ones(numel(r),1)])*DEM.refmat;
+%xy    = double([r c ones(numel(r),1)])*DEM.refmat;
+xy    = double([r-1 c-1 ones(numel(r),1)])*DEM.refmat; %29/08/2024 Kerry changed this to a zero-reference i.e. -1 and -1
 x = xy(:,1);
 y = xy(:,2);
